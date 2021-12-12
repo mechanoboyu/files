@@ -1,0 +1,51 @@
+# 片持ち梁を解析し、主応力の値とその方向、変位、応力を確認する。
+DEBUT(LANG='EN')
+
+mesh = LIRE_MAILLAGE(FORMAT='MED',
+                     UNITE=3)
+
+# 解析モデルを定義
+model = AFFE_MODELE(AFFE=_F(MODELISATION=('C_PLAN', ),
+                            PHENOMENE='MECANIQUE',
+                            TOUT='OUI'),
+                    MAILLAGE=mesh)
+
+# 材料を定義する。この場合は、ヤング率とポワソン比を指定している
+mater = DEFI_MATERIAU(ELAS=_F(E=210000.0,
+                              NU=0.3333))
+
+# 材料をメッシュに割り当てる
+fieldmat = AFFE_MATERIAU(AFFE=_F(MATER=(mater, ),
+                                 TOUT='OUI'),
+                         MODELE=model)
+
+# 固定端の条件を定義
+fix = AFFE_CHAR_MECA(DDL_IMPO=_F(DX=0.0,
+                                 DY=0.0,
+                                 GROUP_MA=('BC', )),
+                     MODELE=model)
+
+# 荷重の条件を定義
+load = AFFE_CHAR_MECA(FORCE_CONTOUR=_F(FY=-0.2,
+                                       GROUP_MA=('Load', )),
+                      MODELE=model)
+
+# 解析内容を定義する
+result = MECA_STATIQUE(CHAM_MATER=fieldmat,
+                       EXCIT=(_F(CHARGE=fix),
+                              _F(CHARGE=load)),
+                       MODELE=model)
+
+# 出力するフィールドを定義する
+unnamed0 = CALC_CHAMP(CONTRAINTE=('SIEF_ELGA', 'SIEF_ELNO', 'SIGM_NOEU', 'SIGM_ELNO'),
+                      CRITERES=('SIEQ_ELGA', 'SIEQ_ELNO'),
+                      FORCE=('REAC_NODA', ),
+                      RESULTAT=result)
+
+# 出力する形式、内容を定義する
+IMPR_RESU(FORMAT='MED',
+          RESU=(_F(RESULTAT=unnamed0),
+                _F(RESULTAT=result)),
+          UNITE=80)
+
+FIN()
