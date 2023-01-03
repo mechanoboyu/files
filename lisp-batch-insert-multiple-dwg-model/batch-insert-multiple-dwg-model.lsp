@@ -144,6 +144,7 @@
   (vla-ZoomAll acadObj)
   ;座標リストを空にしておく
   (setq testlist nil)
+  (setq newFilelist nil)
   ;参照されていない名前の付いたオブジェクトを削除する
   (vla-PurgeAll doc)
   (princ)
