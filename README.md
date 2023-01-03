@@ -14,3 +14,6 @@ https://www.noboyu.com/lisp-batch-wblock-drawing/
 
 ## lisp-batch-insert-multiple-dwg-model
 複数のDwgファイルのモデル空間を、一括で1枚の図面に集めて、並べます。
+
+![複数のDwgファイルのモデル空間を、一括で1枚の図面に集めて、並べまている様子](https://www.noboyu.com/wp-content/uploads/2023/01/batch-insert-demo.gif)
+
