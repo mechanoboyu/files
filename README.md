@@ -10,5 +10,7 @@ https://www.noboyu.com/salome-meca-principal-stress-direction/
 AutoCADでモデル空間に書いた複数の図面を、一括で1枚ずつ分割して、1図面1ファイルとして書き出します。
 https://www.noboyu.com/lisp-batch-wblock-drawing/
 
+![AutoCADでモデル空間に書いた複数の図面を、一括で1枚ずつ分割して、1図面1ファイルとして書き出している様子](https://www.noboyu.com/wp-content/uploads/2022/12/batch-wblock-lisp-demo.gif) 
+
 ## lisp-batch-insert-multiple-dwg-model
 複数のDwgファイルのモデル空間を、一括で1枚の図面に集めて、並べます。
