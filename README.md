@@ -7,4 +7,8 @@ Salome-meca(ソルバー：code_aster)を使って、片持ち梁を解析し、
 https://www.noboyu.com/salome-meca-principal-stress-direction/
 
 ## lisp-batch-wblock-multiple-drawing
-AutoCADでモデル空間に書いた複数の図面を、一括で1枚ずつ分割して、1図面1ファイルとして書き出します。  
+AutoCADでモデル空間に書いた複数の図面を、一括で1枚ずつ分割して、1図面1ファイルとして書き出します。
+https://www.noboyu.com/lisp-batch-wblock-drawing/
+
+## lisp-batch-insert-multiple-dwg-model
+複数のDwgファイルのモデル空間を、一括で1枚の図面に集めて、並べます。
