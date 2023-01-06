@@ -9,13 +9,17 @@
 ; 特徴：* 指定したフォルダ内のDwgファイルを読み取り、新規図面のモデル空間に、まとめてinsertします。
 ;       * 並び方は、100mm間隔で2行n列です。
 ;
+; 開発環境：AutoCAD 2023 Windows版
+;
 ; 注記：  1. 大量の図面を一度に読み込むと、フリーズする可能性があります。
 ;            使用される際は、元図はバックアップの上、まずは簡単な1〜2枚程度の図面でテストして下さい。
-;         2. このコードを保存する際は、エンコードを「Shift-Jis」に指定して下さい。
-;         3. 形状違いでブロック名が同じ場合の共用防止のため、ブロック名が変わる仕様です。
+;         2. このコードを保存する際は、必ずエンコードを「Shift-Jis」に指定して下さい。
+;         3. 複数の図面同士において、形状違いでブロック名が同じ場合の共用防止のため、
+;            ブロック名が変わる仕様です。
 ;         4. 詳しい内容、使い方は、下記WEBサイトをご覧下さい。
-;            https://www.noboyu.com/lisp-batch-insert-drawing/ 
-; 
+;            https://www.noboyu.com/lisp-batch-insert-drawing/
+;
+; 改訂履歴：2023/1/6：匿名ブロックの名前変更で処理が止まる問題を修正
 ;**************************************************************************;
 (vl-load-com)
 
@@ -28,18 +32,35 @@
   (princ msg)
   (princ)
 )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; 匿名ブロックを通常ブロックに変換し、アスタリスクを名前に使わないようにする
+(defun convUnnamedBlk () 
+  (if (wcmatch oldBlkName "`**")
+    (progn 
+      (setq oldBlkName (vl-string-subst "temp" "*" oldBlkName))
+      (vla-ConvertToStaticBlock listelm oldBlkName)
+    )
+  )
+)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; ブロック名が重複している際の上書き回避のため、ブロック名を変更する
-(defun renameBlk(i / explodedObjects el)
+(defun renameBlk (i / explodedObjects newBlkNameList)
   (setq explodedObjects (vlax-variant-value (vla-Explode blockrefobj)))
   (setq el (vlax-safearray->list explodedObjects))
-  (foreach each-item el
-    (if (wcmatch (vl-princ-to-string each-item) "*BlockRef*")
-      (progn
+  (foreach each-item el 
+    (if (wcmatch (vl-princ-to-string each-item) "*BlockRef*") 
+      (progn 
         (setq listelm each-item)
         (setq oldBlkName (vlax-get-property listelm 'Name))
-        (setq newBlkName (strcat oldBlkName "-"(rtos i)))
-        (command-s "-rename" "B" oldBlkName newBlkName)
+        (convUnnamedBlk);匿名ブロックを通常ブロックへ
+        (setq newBlkName (strcat oldBlkName "-" (rtos i)))
+        (setq newBlkNameList (cons newBlkName newBlkNameList))
+        ;同一図面内では、ブロック名の変更は一度だけ行う
+        (if (null (member oldBlkName newBlkNameList)) 
+          (command-s "-rename" "B" oldBlkName newBlkName)
+        )
       )
     )
   )
@@ -60,7 +81,7 @@
                       )
                     )
   )
-  (if (vl-catch-all-error-p blockRefObj) 
+  (if (vl-catch-all-error-p blockRefObj)
     (alert (strcat "エラー内容: " (vl-catch-all-error-message blockRefObj)))
   )
 )
@@ -90,6 +111,8 @@
   ;現在のDocumentオブジェクトへの接続を確立する
   (setq doc (vla-get-ActiveDocument acadObj))
   (setq modelSpace (vla-get-ModelSpace doc))
+  
+  (vla-PurgeAll doc)
 
   (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:¥¥" "" 16))
   (setq loc (vl-filename-directory gloc))
@@ -147,5 +170,6 @@
   (setq newFilelist nil)
   ;参照されていない名前の付いたオブジェクトを削除する
   (vla-PurgeAll doc)
+  (vla-Regen doc acAllViewports)
   (princ)
 )
