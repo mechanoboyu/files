@@ -62,11 +62,11 @@
   ;実行前に何かが選択されていたら、解除する
   (sssetfirst nil nil)
   
-  (prompt "保存先のフォルダ内のファイルを、指定して下さい。¥n（そこからフォルダのパスを取得します）")(terpri)
+  (prompt "保存先のフォルダ内のファイルを、指定して下さい。\n（そこからフォルダのパスを取得します）")(terpri)
   
   ; ユーザーが、書き出し先のフォルダに置いているファイルを選択する
   ; そのファイルから、フォルダの場所を読み取る
-  (setq gloc (getfiled "保存先のファイルを選択:" "E:¥¥" "" 16))
+  (setq gloc (getfiled "保存先のファイルを選択:" "E:\\" "" 16))
   (setq loc (vl-filename-directory gloc))
   
   (prompt (strcat "保存先のフォルダの場所は、"  loc " です"))(terpri)
@@ -114,7 +114,7 @@
     ; 書き出す内容（外枠の中身）を選択する
     (vla-Select ssetObjdwg mode P1 P2)
 
-    (prompt (strcat "¥n setObjdwgの要素数は " (rtos (vla-get-Count ssetObjdwg))" 個 ¥n"))
+    (prompt (strcat "\n setObjdwgの要素数は " (rtos (vla-get-Count ssetObjdwg))" 個 \n"))
     
     ; 書き出し図面の左下を、原点に設定する
     (command "ucs" Pnt1 "")
@@ -128,7 +128,7 @@
     (vla-ZoomWindow acadObj (vlax-3d-point origin) (vlax-3d-point tp2))    
     
     ;WBLOCKを実行
-    (vla-Wblock doc (strcat loc "¥¥" "wblock_batch_test_" (rtos (1+ index)) ".dwg") ssetObjdwg)
+    (vla-Wblock doc (strcat loc "\\" "wblock_batch_test_" (rtos (1+ index)) ".dwg") ssetObjdwg)
     (vla-Clear ssetObjdwg)
     (command "ucs" "W")
     (setq index (1+ index))
@@ -136,8 +136,8 @@
   
   (Extpoints)
   
-  (prompt (strcat "¥n" (rtos index)" 個のファイルを書き出しました。保存先は、"  loc " です"))(terpri)
-  (alert (strcat (rtos index)" 個のファイルを書き出しました。¥n 保存先は、"  loc " です"))
+  (prompt (strcat "\n" (rtos index)" 個のファイルを書き出しました。保存先は、"  loc " です"))(terpri)
+  (alert (strcat (rtos index)" 個のファイルを書き出しました。\n 保存先は、"  loc " です"))
   
   (vla-Delete ssetObj)
   (vla-Delete ssetObjdwg)
