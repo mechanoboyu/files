@@ -20,6 +20,7 @@
 ;            https://www.noboyu.com/lisp-batch-insert-drawing/
 ;
 ; 改訂履歴：2023/1/6：匿名ブロックの名前変更で処理が止まる問題を修正
+;           2022/1/7：行数をユーザーが決める機能を追加
 ;**************************************************************************;
 (vl-load-com)
 
@@ -114,6 +115,13 @@
   
   (vla-PurgeAll doc)
 
+  (setq lines (fix (getreal "行数を入力して下さい: ")))
+  (while (zerop lines)
+  (setq lines (fix (getreal "1 以上の行数を入力して下さい: ")))
+  )
+  (princ (strcat "行数を、" (rtos lines) " に設定しました"))
+  
+  
   (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:¥¥" "" 16))
   (setq loc (vl-filename-directory gloc))
   (setq f-list (vl-directory-files loc "*.dwg"))
@@ -151,11 +159,12 @@
     ; ブロック重複時の上書き回避のため、ブロック名を変更する関数を実行
     (renameBlk index)
 
-    ; 2行n列で並べるため、
-    ; 次の配置点は、現在の場所が、2で割り切れるかどうかで判断する
+    ; 次の配置点は、最初に入力された行数で判断する
+    ;ファイル数を超える行数が入力されていたら、ファイル数を行数とする。
+    (if (>= lines number) (setq lines number))
     (setq nextPoint
       (cond
-        ((= (rem index 2) 0) (list (car minp) (+ 100 (cadr maxp))))
+        ((< (rem index lines) (1- lines)) (list (car minp) (+ 100 (cadr maxp))))
         (t (list (+ 100 (apply 'max (mapcar 'car testlist))) (apply 'min (mapcar 'cadr testlist))))
       )
     )
