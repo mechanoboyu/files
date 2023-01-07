@@ -95,7 +95,7 @@
         (alert 
           (strcat "Exception: " 
                   (vl-catch-all-error-message bbox)
-                  "¥n 無限の構築線など、取得できない図形が存在する可能性があります"
+                  "\n 無限の構築線など、取得できない図形が存在する可能性があります"
           )
         )
         (exit)
@@ -122,11 +122,11 @@
   (princ (strcat "行数を、" (rtos lines) " に設定しました"))
   
   
-  (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:¥¥" "" 16))
+  (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:\\" "" 16))
   (setq loc (vl-filename-directory gloc))
   (setq f-list (vl-directory-files loc "*.dwg"))
   ;フルパスの図面リストをつくる
-  (foreach n f-list (setq newFilelist (cons (strcat loc "¥¥" n) newFilelist)))
+  (foreach n f-list (setq newFilelist (cons (strcat loc "\\" n) newFilelist)))
   ;フルパスの図面リストをソートして、昇順のインデックス番号を取得しておく
   (setq newFilelist-i (vl-sort-i f-list '>))
   ; ファイル数を取得する
@@ -146,7 +146,7 @@
   (repeat number ;ファイルの数だけ、処理を繰り返す
     ;図面を配置する関数
     (setDWG)
-    (prompt (strcat "¥n" "No. "(rtos index)" のファイル"  (nth (nth index newFilelist-i) newFilelist) " です。¥n"))
+    (prompt (strcat "\n" "No. "(rtos index)" のファイル"  (nth (nth index newFilelist-i) newFilelist) " です。\n"))
 
     (Getbd);境界点座標取得
     (vla-Move blockrefobj (vlax-3d-point minP) insertionPnt)
