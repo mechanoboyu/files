@@ -2,4 +2,5 @@
 * text=auto
 # 全てのlispファイル
 #*.lsp diff=sjis
-*.lsp text working-tree-encoding=sjis eol=CRLF
+#*.lsp text working-tree-encoding=sjis eol=CRLF
+*.lsp text working-tree-encoding=CP932 eol=CRLF
