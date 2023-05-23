@@ -21,6 +21,8 @@
 ;
 ; 改訂履歴：2023/1/6：匿名ブロックの名前変更で処理が止まる問題を修正
 ;           2022/1/7：行数をユーザーが決める機能を追加
+;           2023/5/23:行の挿入方向を、下側にするバージョン。
+;                     ※AutoCADでテスト未実施。試される際はテストファイルでお試しください。
 ;**************************************************************************;
 (vl-load-com)
 
@@ -163,6 +165,17 @@
     )
 
     (Getbd) ;境界点座標取得
+
+    ;挿入方向が下方向の場合、自身の高さを取得して挿入位置を決める
+    (if (= 123 (last nextPoint)) 
+      (progn 
+        (setq dheight (- (cadr maxp) (cadr minp)))
+        (setq nextPoint (vl-remove 123 nextPoint))
+        (setq nextPoint (append nextPoint (list (* -1 (+ 100 dheight)))))
+        (setq insertionPnt (vlax-3D-point nextPoint))
+      )
+    )
+    ;図面を挿入点に移動する
     (vla-Move blockrefobj (vlax-3d-point minP) insertionPnt)
 
     (Getbd) ;図形を移動後の、境界点の座標を取得
@@ -176,19 +189,16 @@
     ; 次の配置点は、最初に入力された行数で判断する
     ;ファイル数を超える行数が入力されていたら、ファイル数を行数とする。
     (if (>= lines number) (setq lines number))
-    ;図枠の高さを取得する
-    (setq dheight (- (cadr maxp) (cadr minp)))
     (setq nextPoint (cond 
                       ;次の点が、下方向（Y方向の負の方向）の場合の処理
+                      ;123はダミー。次の図面の高さを次のループで取得してから差し替える。
                       ((< (rem index lines) (1- lines))
-                       (list (car minp) (- (cadr minp) (+ 100 dheight)))
+                       (list (car minp) 123)
                       )
                       ;次の点が、列方向の場合の処理
                       (t (list (+ 100 (apply 'max (mapcar 'car testlist))) 0))
                     )
     )
-
-
     (setq insertionPnt (vlax-3D-point nextPoint))
     (vla-Delete blockRefObj)
     (setq index (1+ index))
@@ -197,6 +207,7 @@
   (vla-ZoomAll acadObj)
   ;座標リストを空にしておく
   (setq testlist nil)
+  (setq nextPoint nil)
   (setq newFilelist nil)
   ;参照されていない名前の付いたオブジェクトを削除する
   (vla-PurgeAll doc)
