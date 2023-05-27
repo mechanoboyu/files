@@ -29,6 +29,7 @@
 (defun *error* (msg) 
   (setq testlist nil)
   (setq newFilelist nil)
+  (setq nextPoint nil)
   (vla-Delete blockRefObj)
   (vla-PurgeAll doc)
   (vla-ZoomAll acadObj)
@@ -111,7 +112,7 @@
 )
 
 ;;;; Main program ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun c:bd_insert (/ blockrefobj) 
+(defun c:bd_insert (/ blockrefobj isBottom) 
   ;AutoCAD Applicationオブジェクトへの接続を確立する
   (setq acadObj (vlax-get-acad-object))
   ;現在のDocumentオブジェクトへの接続を確立する
@@ -139,6 +140,7 @@
 
   ;初回配置位置
   (setq insertionPnt (vlax-3d-point 0 0 0))
+  (setq oldY 0)
 
   ;実行前に最終確認を行う
   (initget 1 "Yes No")
@@ -167,14 +169,16 @@
     (Getbd) ;境界点座標取得
 
     ;挿入方向が下方向の場合、自身の高さを取得して挿入位置を決める
-    (if (= 123 (last nextPoint)) 
+    (if (= isBottom T) 
       (progn 
         (setq dheight (- (cadr maxp) (cadr minp)))
-        (setq nextPoint (vl-remove 123 nextPoint))
-        (setq nextPoint (append nextPoint (list (* -1 (+ 100 dheight)))))
+        (setq newY (* -1 (+ 100 dheight (abs oldY))))
+        (setq nextPoint (subst newY oldY nextPoint))
         (setq insertionPnt (vlax-3D-point nextPoint))
+        (setq oldY newY)
       )
     )
+    (setq isBottom nil)
     ;図面を挿入点に移動する
     (vla-Move blockrefobj (vlax-3d-point minP) insertionPnt)
 
@@ -191,12 +195,12 @@
     (if (>= lines number) (setq lines number))
     (setq nextPoint (cond 
                       ;次の点が、下方向（Y方向の負の方向）の場合の処理
-                      ;123はダミー。次の図面の高さを次のループで取得してから差し替える。
+                      ;次の図面の高さは次のループで取得する。
                       ((< (rem index lines) (1- lines))
-                       (list (car minp) 123)
+                       (setq isBottom T)(list (car minp) oldY)
                       )
                       ;次の点が、列方向の場合の処理
-                      (t (list (+ 100 (apply 'max (mapcar 'car testlist))) 0))
+                      (t (setq oldY 0)(list (+ 100 (apply 'max (mapcar 'car testlist))) 0))
                     )
     )
     (setq insertionPnt (vlax-3D-point nextPoint))
