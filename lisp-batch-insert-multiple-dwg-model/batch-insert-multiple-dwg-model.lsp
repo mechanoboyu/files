@@ -21,6 +21,10 @@
 ;
 ; 改訂履歴：2023/1/6：匿名ブロックの名前変更で処理が止まる問題を修正
 ;           2022/1/7：行数をユーザーが決める機能を追加
+;           2023/6/2：（コメント欄対応）以下の仕様に改変
+;                     1.貼り付け位置を同一位置にして重なるようにする
+;                     2.1.の図面は、それぞれブロック化する
+;                     ※ブロック名の重複防止処理は、未実装
 ;**************************************************************************;
 (vl-load-com)
 
@@ -114,13 +118,6 @@
   (setq modelSpace (vla-get-ModelSpace doc))
   
   (vla-PurgeAll doc)
-
-  (setq lines (fix (getreal "行数を入力して下さい: ")))
-  (while (zerop lines)
-  (setq lines (fix (getreal "1 以上の行数を入力して下さい: ")))
-  )
-  (princ (strcat "行数を、" (rtos lines) " に設定しました"))
-  
   
   (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:\\" "" 16))
   (setq loc (vl-filename-directory gloc))
@@ -134,6 +131,7 @@
 
   ;初回配置位置
   (setq insertionPnt (vlax-3d-point 0 0 0))
+  (setq testOrigin (vlax-3d-point 0 0 0))
 
   ;実行前に最終確認を行う
   (initget 1 "Yes No")
@@ -154,28 +152,18 @@
     (Getbd);図形を移動後の、境界点の座標を取得
 
     ; 境界点リスト作成
-    (setq testlist (cons minp (cons maxp testlist)))
+    ;(setq testlist (cons minp (cons maxp testlist)))
     
     ; ブロック重複時の上書き回避のため、ブロック名を変更する関数を実行
-    (renameBlk index)
+    ;(renameBlk index)
 
-    ; 次の配置点は、最初に入力された行数で判断する
-    ;ファイル数を超える行数が入力されていたら、ファイル数を行数とする。
-    (if (>= lines number) (setq lines number))
-    (setq nextPoint
-      (cond
-        ((< (rem index lines) (1- lines)) (list (car minp) (+ 100 (cadr maxp))))
-        (t (list (+ 100 (apply 'max (mapcar 'car testlist))) (apply 'min (mapcar 'cadr testlist))))
-      )
-    )
-    (setq insertionPnt (vlax-3D-point nextPoint))
-    (vla-Delete blockRefObj)
+    ;(vla-Delete blockRefObj)
     (setq index (1+ index))
   );repeat
 
   (vla-ZoomAll acadObj)
   ;座標リストを空にしておく
-  (setq testlist nil)
+  ;(setq testlist nil)
   (setq newFilelist nil)
   ;参照されていない名前の付いたオブジェクトを削除する
   (vla-PurgeAll doc)
