@@ -25,10 +25,13 @@
 ;                     1.貼り付け位置を同一位置にして重なるようにする
 ;                     2.1.の図面は、それぞれブロック化する
 ;                     ※ブロック名の重複防止処理は、未実装
+;           2023/6/3：ブロック名の重複防止処理追加。ブロック名に番号を追加する。
+;                     ただし、深くネストされたブロックに対しては無効です。
+;                 （一度で分解されないレベルの、ブロックの中にあるブロック）        
 ;**************************************************************************;
 (vl-load-com)
 
-(defun *error* (msg)
+(defun *error* (msg) 
   (setq testlist nil)
   (setq newFilelist nil)
   (vla-Delete blockRefObj)
@@ -41,7 +44,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 匿名ブロックを通常ブロックに変換し、アスタリスクを名前に使わないようにする
 (defun convUnnamedBlk () 
-  (if (wcmatch oldBlkName "`**")
+  (if (wcmatch oldBlkName "`**") 
     (progn 
       (setq oldBlkName (vl-string-subst "temp" "*" oldBlkName))
       (vla-ConvertToStaticBlock listelm oldBlkName)
@@ -51,15 +54,16 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; ブロック名が重複している際の上書き回避のため、ブロック名を変更する
-(defun renameBlk (i / explodedObjects newBlkNameList)
+(defun renameBlk (i / newBlkNameList) 
   (setq explodedObjects (vlax-variant-value (vla-Explode blockrefobj)))
   (setq el (vlax-safearray->list explodedObjects))
+  (prin1 el)
   (foreach each-item el 
     (if (wcmatch (vl-princ-to-string each-item) "*BlockRef*") 
       (progn 
         (setq listelm each-item)
         (setq oldBlkName (vlax-get-property listelm 'Name))
-        (convUnnamedBlk);匿名ブロックを通常ブロックへ
+        (convUnnamedBlk) ;匿名ブロックを通常ブロックへ
         (setq newBlkName (strcat oldBlkName "-" (rtos i)))
         (setq newBlkNameList (cons newBlkName newBlkNameList))
         ;同一図面内では、ブロック名の変更は一度だけ行う
@@ -72,8 +76,8 @@
 )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 対象のDwgデータのリストを順次読み取り、insertメソッドで配置する
-(defun setDWG()
-; ファイルが読み込めないなどでエラーが発生すると、アラートを表示します
+(defun setDWG () 
+  ; ファイルが読み込めないなどでエラーが発生すると、アラートを表示します
   (setq blockRefObj (vl-catch-all-apply 
                       'vla-InsertBlock
                       (list modelSpace 
@@ -86,39 +90,42 @@
                       )
                     )
   )
-  (if (vl-catch-all-error-p blockRefObj)
+  (if (vl-catch-all-error-p blockRefObj) 
     (alert (strcat "エラー内容: " (vl-catch-all-error-message blockRefObj)))
   )
 )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;読み込んだ図形の境界点のmin、max座標を取得する
-  (defun Getbd()
-    (setq bbox (vl-catch-all-apply 'vla-getboundingbox (list blockrefobj 'point1 'point2 )))
-    (if (vl-catch-all-error-p bbox) 
-      (progn 
-        (alert 
-          (strcat "Exception: " 
-                  (vl-catch-all-error-message bbox)
-                  "\n 無限の構築線など、取得できない図形が存在する可能性があります"
-          )
+(defun Getbd () 
+  (setq bbox (vl-catch-all-apply 'vla-getboundingbox 
+                                 (list blockrefobj 'point1 'point2)
+             )
+  )
+  (if (vl-catch-all-error-p bbox) 
+    (progn 
+      (alert 
+        (strcat "Exception: " 
+                (vl-catch-all-error-message bbox)
+                "\n 無限の構築線など、取得できない図形が存在する可能性があります"
         )
-        (exit)
       )
+      (exit)
     )
-    (setq minP (vlax-safearray->list point1))
-    (setq maxP (vlax-safearray->list point2))
-    )
+  )
+  (setq minP (vlax-safearray->list point1))
+  (setq maxP (vlax-safearray->list point2))
+)
 
 ;;;; Main program ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun c:bd_insert( / blockrefobj)
+(defun c:bd_insert () 
   ;AutoCAD Applicationオブジェクトへの接続を確立する
   (setq acadObj (vlax-get-acad-object))
   ;現在のDocumentオブジェクトへの接続を確立する
   (setq doc (vla-get-ActiveDocument acadObj))
   (setq modelSpace (vla-get-ModelSpace doc))
-  
+
   (vla-PurgeAll doc)
-  
+
   (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:\\" "" 16))
   (setq loc (vl-filename-directory gloc))
   (setq f-list (vl-directory-files loc "*.dwg"))
@@ -129,44 +136,81 @@
   ; ファイル数を取得する
   (setq number (length f-list))
 
-  ;初回配置位置
+  ;配置位置
   (setq insertionPnt (vlax-3d-point 0 0 0))
-  (setq testOrigin (vlax-3d-point 0 0 0))
+  
+  ;作業時と配置用の画像を、新しく作っておく
+  (setq layers (vla-get-Layers doc))
+  (setq layname "New_Layer")
+  (setq tempLayname "Temp_Layer")
+  (setq layerObj (vla-Add layers layname))
+  (setq layerObj2 (vla-Add layers tempLayname))
 
   ;実行前に最終確認を行う
   (initget 1 "Yes No")
-  (setq answer (getkword (strcat (rtos number)" 個のファイルを読み込みます。よろしいですか？[Yes/No] <Yes>: ")))
-  (cond
-   ((= answer "No") (exit))
+  (setq answer (getkword 
+                 (strcat (rtos number) " 個のファイルを読み込みます。よろしいですか？[Yes/No] <Yes>: ")
+               )
+  )
+  (cond 
+    ((= answer "No") (exit))
   )
 
   (setq index 0)
-  (repeat number ;ファイルの数だけ、処理を繰り返す
+  (repeat number  ;ファイルの数だけ、処理を繰り返す
+    ;作業用の画層をアクティブにする
+    (vla-put-ActiveLayer doc layerObj2)
     ;図面を配置する関数
     (setDWG)
-    (prompt (strcat "\n" "No. "(rtos index)" のファイル"  (nth (nth index newFilelist-i) newFilelist) " です。\n"))
+    (prompt 
+      (strcat "\n" 
+              "No. "
+              (rtos index)
+              " のファイル"
+              (nth (nth index newFilelist-i) newFilelist)
+              " です。\n"
+      )
+    )
 
-    (Getbd);境界点座標取得
-    (vla-Move blockrefobj (vlax-3d-point minP) insertionPnt)
+    (Getbd) ;境界点座標取得
+    ;(vla-Move blockrefobj (vlax-3d-point minP) insertionPnt)
+    (setq bname (strcat (rtos index) "-" (vla-get-Name blockRefObj)))
+    (setq blkcoll (vla-get-blocks doc))
+    (setq blk (vla-Add blkcoll (vlax-3d-point minp) bname))
 
-    (Getbd);図形を移動後の、境界点の座標を取得
-
-    ; 境界点リスト作成
-    ;(setq testlist (cons minp (cons maxp testlist)))
-    
     ; ブロック重複時の上書き回避のため、ブロック名を変更する関数を実行
-    ;(renameBlk index)
+    (renameBlk index)
+    ;関数renameBlkで分解したオブジェクトを集めて、一つのブロックを作る
+    (vla-copyobjects doc explodedObjects blk)
 
-    ;(vla-Delete blockRefObj)
+    ;配置用の画層をアクティブにする
+    (vla-put-ActiveLayer doc layerObj)
+    ;先ほど作ったブロックを配置する
+    (vla-insertblock modelSpace insertionPnt bname 1 1 1 0)
+    (vla-delete blockRefObj)
+(vlax-release-object acadObj)
     (setq index (1+ index))
   );repeat
 
+  ;最終的なブロック以外を選択して、削除する
+  (setq ssset (ssget "X" 
+                     (list (cons -4 "<NOT") 
+                           (cons -4 "<AND")
+                           (cons 0 "insert")
+                           (cons 8 layname)
+                           (cons -4 "AND>")
+                           (cons -4 "NOT>")
+                     )
+              )
+  )
+  (command-s "Erase" ssset "")
+
   (vla-ZoomAll acadObj)
   ;座標リストを空にしておく
-  ;(setq testlist nil)
   (setq newFilelist nil)
   ;参照されていない名前の付いたオブジェクトを削除する
   (vla-PurgeAll doc)
   (vla-Regen doc acAllViewports)
+  ;(vlax-release-object acadObj)
   (princ)
 )
