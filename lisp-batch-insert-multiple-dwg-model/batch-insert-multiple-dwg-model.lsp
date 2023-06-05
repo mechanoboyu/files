@@ -143,6 +143,7 @@
   ;初回配置位置
   (setq insertionPnt (vlax-3d-point 0 0 0))
   (setq oldY 0)
+  (setq isBottom nil)
 
   ;実行前に最終確認を行う
   (initget 1 "Yes No")
@@ -175,16 +176,20 @@
       (progn 
         (setq dheight (- (cadr maxp) (cadr minp)))
         (setq newY (* -1 (+ 100 dheight (abs oldY))))
+        ;ここが、XY0,0のばあい、どっちも合致するのでxyがおきかわっているっぽい
+        ;index1のときに、おかしくなってる
         (setq nextPoint (subst newY oldY nextPoint))
         (setq insertionPnt (vlax-3D-point nextPoint))
         (setq oldY newY)
       )
     )
     (setq isBottom nil)
+    (prin1 (vlax-safearray->list (vlax-variant-value insertionPnt)))
     ;図面を挿入点に移動する
     (vla-Move blockrefobj (vlax-3d-point minP) insertionPnt)
 
     (Getbd) ;図形を移動後の、境界点の座標を取得
+
 
     ; 境界点リスト作成
     (setq testlist (cons minp (cons maxp testlist)))
@@ -205,7 +210,9 @@
                       (t (setq oldY 0)(list (+ 100 (apply 'max (mapcar 'car testlist))) 0))
                     )
     )
+    
     (setq insertionPnt (vlax-3D-point nextPoint))
+    (prin1 (vlax-safearray->list (vlax-variant-value insertionPnt)))
     (vla-Delete blockRefObj)
     (setq index (1+ index))
   ) ;repeat
