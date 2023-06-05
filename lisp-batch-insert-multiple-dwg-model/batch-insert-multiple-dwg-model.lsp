@@ -139,7 +139,7 @@
   ;配置位置
   (setq insertionPnt (vlax-3d-point 0 0 0))
   
-  ;作業時と配置用の画像を、新しく作っておく
+  ;作業時と配置用の画層を、新しく作っておく
   (setq layers (vla-get-Layers doc))
   (setq layname "New_Layer")
   (setq tempLayname "Temp_Layer")
@@ -188,7 +188,7 @@
     ;先ほど作ったブロックを配置する
     (vla-insertblock modelSpace insertionPnt bname 1 1 1 0)
     (vla-delete blockRefObj)
-(vlax-release-object acadObj)
+;(vlax-release-object acadObj)
     (setq index (1+ index))
   );repeat
 
