@@ -1,34 +1,5 @@
-;**************************************************************************;
-; 関数名：bd_insert
-; ファイル名：batch-insert-multiple-dwg-model.lsp
-; 作成日：2023/1/3
-; 作成：Noboyu
-;
-; 内容：複数のDwgファイルのモデル空間を、一括で1枚の図面に集めて、並べます。
-;
-; 特徴：* 指定したフォルダ内のDwgファイルを読み取り、新規図面のモデル空間に、まとめてinsertします。
-;       * 並び方は、100mm間隔で2行n列です。
-;
-; 開発環境：AutoCAD 2023 Windows版
-;
-; 注記：  1. 大量の図面を一度に読み込むと、フリーズする可能性があります。
-;            使用される際は、元図はバックアップの上、まずは簡単な1,2枚程度の図面でテストして下さい。
-;         2. このコードを保存する際は、必ずエンコードを「Shift-Jis」に指定して下さい。
-;         3. 複数の図面同士において、形状違いでブロック名が同じ場合の共用防止のため、
-;            ブロック名が変わる仕様です。
-;         4. 詳しい内容、使い方は、下記WEBサイトをご覧下さい。
-;            https://www.noboyu.com/lisp-batch-insert-drawing/
-;
-; 改訂履歴：2023/1/6：匿名ブロックの名前変更で処理が止まる問題を修正
-;           2022/1/7：行数をユーザーが決める機能を追加
-;           2023/6/2：（コメント欄対応）以下の仕様に改変
-;                     1.貼り付け位置を同一位置にして重なるようにする
-;                     2.1.の図面は、それぞれブロック化する
-;                     ※ブロック名の重複防止処理は、未実装
-;           2023/6/3：ブロック名の重複防止処理追加。ブロック名に番号を追加する。
-;                     ただし、深くネストされたブロックに対しては無効です。
-;                 （一度で分解されないレベルの、ブロックの中にあるブロック）        
-;**************************************************************************;
+
+
 (vl-load-com)
 
 (defun *error* (msg) 
@@ -44,12 +15,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 匿名ブロックを通常ブロックに変換し、アスタリスクを名前に使わないようにする
 (defun convUnnamedBlk () 
-  (if (wcmatch oldBlkName "`**") 
+  (setq oldBlkName (vla-get-EffectiveName listelm))
+  ;この辺あやしい
+  (if (= :vlax-true (vla-get-isdynamicblock listelm)) 
     (progn 
-      (setq oldBlkName (vl-string-subst "temp" "*" oldBlkName))
-      (vla-ConvertToStaticBlock listelm oldBlkName)
+      (setq oldBlkName (strcat "temp" oldBlkName))
+      (vla-ConvertToStaticBlock listelm (strcat "_" oldBlkName))
     )
   )
+  (if (wcmatch oldBlkName "*`**") 
+    (progn 
+      (setq oldBlkName (vl-string-subst "temp" "*" oldBlkName))
+      (vla-ConvertToStaticBlock listelm (strcat "_" oldBlkName))
+    )
+  )
+  ;(vla-ConvertToStaticBlock listelm oldBlkName)
+  ;(vla-ConvertToStaticBlock listelm (strcat "_" oldBlkName))
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -57,19 +38,27 @@
 (defun renameBlk (i / newBlkNameList) 
   (setq explodedObjects (vlax-variant-value (vla-Explode blockrefobj)))
   (setq el (vlax-safearray->list explodedObjects))
-  (prin1 el)
+  ;(princ el)
   (foreach each-item el 
     (if (wcmatch (vl-princ-to-string each-item) "*BlockRef*") 
       (progn 
         (setq listelm each-item)
         (setq oldBlkName (vlax-get-property listelm 'Name))
         (convUnnamedBlk) ;匿名ブロックを通常ブロックへ
-        (setq newBlkName (strcat oldBlkName "-" (rtos i)))
-        (setq newBlkNameList (cons newBlkName newBlkNameList))
-        ;同一図面内では、ブロック名の変更は一度だけ行う
-        (if (null (member oldBlkName newBlkNameList)) 
-          (command-s "-rename" "B" oldBlkName newBlkName)
+        (setq oldBlkName (vlax-get-property listelm 'Name))
+        (if (null (member oldBlkName newBlkNameList))  ;一致しなかったら
+          (progn 
+            (setq newBlkName (strcat oldBlkName "-" (rtos i)))
+            (setq newBlkNameList (cons newBlkName newBlkNameList))
+            (command-s "-rename" "B" oldBlkName newBlkName)
+          )
         )
+
+        (princ newBlkNameList)
+        
+        ;同一図面内では、ブロック名の変更は一度だけ行う
+
+
       )
     )
   )
@@ -125,7 +114,7 @@
   (setq modelSpace (vla-get-ModelSpace doc))
 
   (vla-PurgeAll doc)
-
+  (vla-PurgeAll doc)
   (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:\\" "" 16))
   (setq loc (vl-filename-directory gloc))
   (setq f-list (vl-directory-files loc "*.dwg"))
@@ -138,7 +127,7 @@
 
   ;配置位置
   (setq insertionPnt (vlax-3d-point 0 0 0))
-  
+
   ;作業時と配置用の画層を、新しく作っておく
   (setq layers (vla-get-Layers doc))
   (setq layname "New_Layer")
@@ -173,7 +162,7 @@
     )
 
     (Getbd) ;境界点座標取得
-    ;(vla-Move blockrefobj (vlax-3d-point minP) insertionPnt)
+
     (setq bname (strcat (rtos index) "-" (vla-get-Name blockRefObj)))
     (setq blkcoll (vla-get-blocks doc))
     (setq blk (vla-Add blkcoll (vlax-3d-point minp) bname))
@@ -188,9 +177,9 @@
     ;先ほど作ったブロックを配置する
     (vla-insertblock modelSpace insertionPnt bname 1 1 1 0)
     (vla-delete blockRefObj)
-;(vlax-release-object acadObj)
+    ;(vlax-release-object acadObj)
     (setq index (1+ index))
-  );repeat
+  ) ;repeat
 
   ;最終的なブロック以外を選択して、削除する
   (setq ssset (ssget "X" 
