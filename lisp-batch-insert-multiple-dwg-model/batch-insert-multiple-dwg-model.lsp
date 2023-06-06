@@ -138,7 +138,7 @@
   (setq modelSpace (vla-get-ModelSpace doc))
 
   (vla-PurgeAll doc)
-
+  (vla-PurgeAll doc)
   (setq lines (fix (getreal "行数を入力して下さい: ")))
   (while (zerop lines) 
     (setq lines (fix (getreal "1 以上の行数を入力して下さい: ")))
@@ -198,7 +198,7 @@
       )
     )
     (setq isBottom nil)
-    (prin1 (vlax-safearray->list (vlax-variant-value insertionPnt)))
+    
     ;図面を挿入点に移動する
     (vla-Move blockrefobj (vlax-3d-point minP) insertionPnt)
 
@@ -239,6 +239,7 @@
   (setq nextPoint nil)
   (setq newFilelist nil)
   ;参照されていない名前の付いたオブジェクトを削除する
+  (vla-PurgeAll doc)
   (vla-PurgeAll doc)
   (vla-Regen doc acAllViewports)
   (princ)
