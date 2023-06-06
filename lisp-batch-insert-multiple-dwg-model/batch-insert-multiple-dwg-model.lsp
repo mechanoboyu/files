@@ -1,3 +1,4 @@
+(vl-load-com)
 ;**************************************************************************;
 ; 関数名：bd_insert
 ; ファイル名：batch-insert-multiple-dwg-model.lsp
@@ -25,9 +26,10 @@
 ;                     ※AutoCADでテスト未実施。試される際はテストファイルでお試しください。
 ;           2023/5/27:3行以上の場合、2行目に重なってしまう不具合を修正。
 ;                     ※AutoCADでテスト未実施。試される際はテストファイルでお試しください。
+;           2023/06/06:AutoCAD2024で以下の動作不良の対処。
+;                     ・2列目の最初の座標が狂う
+;                     ・ダイナミックブロック→通常ブロックへの変換時にエラー
 ;**************************************************************************;
-(vl-load-com)
-
 (defun *error* (msg) 
   (setq testlist nil)
   (setq newFilelist nil)
@@ -42,10 +44,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 匿名ブロックを通常ブロックに変換し、アスタリスクを名前に使わないようにする
 (defun convUnnamedBlk () 
-  (if (wcmatch oldBlkName "`**") 
+  ;ダイナミックブロックだったら実行
+  (if (= :vlax-true (vla-get-isdynamicblock listelm)) 
+    (progn 
+      (setq oldBlkName (strcat "temp" oldBlkName))
+      (vla-ConvertToStaticBlock listelm (strcat "st_" oldBlkName "_" (itoa cnt)))
+      (setq cnt (1+ cnt))
+    )
+  )
+  ;名前にアスタリスクが入っていたら実行
+  (if (wcmatch oldBlkName "*`**") 
     (progn 
       (setq oldBlkName (vl-string-subst "temp" "*" oldBlkName))
-      (vla-ConvertToStaticBlock listelm oldBlkName)
+      (vla-ConvertToStaticBlock listelm (strcat "_" oldBlkName))
     )
   )
 )
@@ -55,21 +66,26 @@
 (defun renameBlk (i / explodedObjects newBlkNameList) 
   (setq explodedObjects (vlax-variant-value (vla-Explode blockrefobj)))
   (setq el (vlax-safearray->list explodedObjects))
+  ;(princ el)
   (foreach each-item el 
     (if (wcmatch (vl-princ-to-string each-item) "*BlockRef*") 
       (progn 
         (setq listelm each-item)
         (setq oldBlkName (vlax-get-property listelm 'Name))
         (convUnnamedBlk) ;匿名ブロックを通常ブロックへ
-        (setq newBlkName (strcat oldBlkName "-" (rtos i)))
-        (setq newBlkNameList (cons newBlkName newBlkNameList))
+        (setq oldBlkName (vlax-get-property listelm 'Name))
         ;同一図面内では、ブロック名の変更は一度だけ行う
-        (if (null (member oldBlkName newBlkNameList)) 
-          (command-s "-rename" "B" oldBlkName newBlkName)
+        (if (null (member oldBlkName newBlkNameList))  ;既に変更済みでなかったら
+          (progn 
+            (setq newBlkName (strcat oldBlkName "-" (rtos i)))
+            (setq newBlkNameList (cons newBlkName newBlkNameList))
+            (command-s "-rename" "B" oldBlkName newBlkName)
+          )
         )
-      )
-    )
-  )
+        ;(princ newBlkNameList)
+      ) ;progn
+    ) ;if
+  ) ;foreach
 )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 対象のDwgデータのリストを順次読み取り、insertメソッドで配置する
@@ -172,13 +188,11 @@
     (Getbd) ;境界点座標取得
 
     ;挿入方向が下方向の場合、自身の高さを取得して挿入位置を決める
-    (if (= isBottom T) 
+    (if (eq isBottom 1) 
       (progn 
         (setq dheight (- (cadr maxp) (cadr minp)))
         (setq newY (* -1 (+ 100 dheight (abs oldY))))
-        ;ここが、XY0,0のばあい、どっちも合致するのでxyがおきかわっているっぽい
-        ;index1のときに、おかしくなってる
-        (setq nextPoint (subst newY oldY nextPoint))
+        (setq nextPoint (list (car nextPoint) newY))
         (setq insertionPnt (vlax-3D-point nextPoint))
         (setq oldY newY)
       )
@@ -190,11 +204,11 @@
 
     (Getbd) ;図形を移動後の、境界点の座標を取得
 
-
     ; 境界点リスト作成
     (setq testlist (cons minp (cons maxp testlist)))
 
     ; ブロック重複時の上書き回避のため、ブロック名を変更する関数を実行
+    (setq cnt 0)
     (renameBlk index)
 
     ; 次の配置点は、最初に入力された行数で判断する
@@ -204,13 +218,15 @@
                       ;次の点が、下方向（Y方向の負の方向）の場合の処理
                       ;次の図面の高さは次のループで取得する。
                       ((< (rem index lines) (1- lines))
-                       (setq isBottom T)(list (car minp) oldY)
+                       (setq isBottom 1)
+                       (list (car minp) oldY)
                       )
                       ;次の点が、列方向の場合の処理
-                      (t (setq oldY 0)(list (+ 100 (apply 'max (mapcar 'car testlist))) 0))
+                      ((setq oldY 0)
+                       (list (+ 100 (apply 'max (mapcar 'car testlist))) 0)
+                      )
                     )
     )
-    
     (setq insertionPnt (vlax-3D-point nextPoint))
     (prin1 (vlax-safearray->list (vlax-variant-value insertionPnt)))
     (vla-Delete blockRefObj)
