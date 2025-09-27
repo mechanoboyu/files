@@ -4,27 +4,9 @@
 ; ファイル名：batch-insert-multiple-dwg-model.lsp
 ; 作成日：2023/1/3
 ; 作成：Noboyu
-;
+;https://www.noboyu.com/lisp-batch-insert-drawing/
 ; 内容：複数のDwgファイルのモデル空間を、一括で1枚の図面に集めて、並べます。
-;
-; 特徴：* 指定したフォルダ内のDwgファイルを読み取り、新規図面のモデル空間に、
-;         まとめてinsertします。
-;       * 並び方は、100mm間隔で指定行×n列です。
-; 開発環境：AutoCAD 2023 Windows版
-;
-; 注記：  1. 大量の図面を一度に読み込むと、フリーズする可能性があります。
-;           使用される際は、元図はバックアップの上、
-;           まずは簡単な1,2枚程度の図面でテストして下さい。
-;         2. このコードを保存する際は、必ずエンコードを「Shift-Jis」に指定して下さい。
-;         3. ブロック名が変わる仕様です。
-;             複数の図面同士において、形状違いでブロック名が同じ場合の共用防止のため;            
-;         4. 詳しい内容、使い方は、下記WEBサイトをご覧下さい。
-;            https://www.noboyu.com/lisp-batch-insert-drawing/
-;
-; 改訂履歴：2023/1/6：匿名ブロックの名前変更で処理が止まる問題を修正
-;           2023/1/7：行数をユーザーが決める機能を追加
-;           2023/06/06：以下のエラーを修正
-;            ・ ブロック名の生成に失敗し重複するため、ブロック名変更時にエラーが発生
+;2025/9/27:試験的に改変。ピッチをユーザ入力に変更。（未デバッグです。）
 ;**************************************************************************************;
 
 (defun *error* (msg) 
@@ -37,7 +19,12 @@
   (princ)
 )
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;ピッチをユーザーに聞く
+(defun askPitch ()
+  (setq x_pitch (getreal "\nX方向のピッチを入力してください: "))
+  (setq y_pitch (getreal "\nY方向のピッチを入力してください: "))
+)
+; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 匿名ブロックを通常ブロックに変換し、アスタリスクを名前に使わないようにする
 (defun convUnnamedBlk () 
   ;ダイナミックブロックだったら実行
@@ -140,6 +127,8 @@
     (setq lines (fix (getreal "1 以上の行数を入力して下さい: ")))
   )
   (princ (strcat "行数を、" (rtos lines) " に設定しました"))
+  
+  (askPitch)
 
 
   (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:\\" "" 16))
@@ -196,10 +185,11 @@
     (if (>= lines number) (setq lines number))
     (setq nextPoint (cond 
                       ((< (rem index lines) (1- lines))
-                       (list (car minp) (+ 100 (cadr maxp)))
+                       ;(list (car minp) (+ 100 (cadr maxp)))
+                       (list (car minp) (+ y_pitch (cadr minp)))
                       )
                       (t
-                       (list (+ 100 (apply 'max (mapcar 'car testlist))) 
+                       (list (+ x_pitch (apply 'min (mapcar 'cadr testlist))) 
                              (apply 'min (mapcar 'cadr testlist))
                        )
                       )
