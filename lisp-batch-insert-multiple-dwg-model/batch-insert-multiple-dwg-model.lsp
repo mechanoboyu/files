@@ -42,7 +42,7 @@
 (defun get-number-from-filename (s) 
   ((lambda (/ tmp) 
      (setq tmp (SplitString s "-"))
-     (print tmp)
+     ;(print tmp)
      (read (cadr tmp))
    ) 
   )
