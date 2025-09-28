@@ -20,10 +20,51 @@
 )
 
 ;ピッチをユーザーに聞く
-(defun askPitch ()
+(defun askPitch () 
   (setq x_pitch (getreal "\nX方向のピッチを入力してください: "))
   (setq y_pitch (getreal "\nY方向のピッチを入力してください: "))
 )
+;ファイル名末尾が一桁の連番が混ざっている場合でも、昇順を維持。
+;1,10,2,20ではなく、1,2,10,20になるようにする
+;ファイル名の末尾がハイフンで区切られている前提
+;aaa-1.dwgなど。
+;ハイフンで分離
+(defun SplitString (str delim / pos sub_str result) 
+  (setq result '())
+  (setq sub_str str)
+  (while (setq pos (vl-string-search delim sub_str)) 
+    (setq result (append result (list (substr sub_str 1 pos))))
+    (setq sub_str (substr sub_str (+ pos (strlen delim) 1)))
+  )
+  (append result (list sub_str))
+)
+;末尾の連番の数字だけを取得する
+(defun get-number-from-filename (s) 
+  ((lambda (/ tmp) 
+     (setq tmp (SplitString s "-"))
+     (print tmp)
+     (read (cadr tmp))
+   ) 
+  )
+)
+;ソートのため、拡張子を削除
+(defun delDWGandSort (/ tmp) 
+  (setq tmp (mapcar 
+              '(lambda (x) 
+                 (vl-string-subst "" ".dwg" x)
+               )
+              f-list
+            )
+  )
+
+  (vl-sort-i tmp 
+             '(lambda (a b) 
+                (< (get-number-from-filename a) (get-number-from-filename b))
+              )
+  )
+)
+
+
 ; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 匿名ブロックを通常ブロックに変換し、アスタリスクを名前に使わないようにする
 (defun convUnnamedBlk () 
@@ -127,17 +168,31 @@
     (setq lines (fix (getreal "1 以上の行数を入力して下さい: ")))
   )
   (princ (strcat "行数を、" (rtos lines) " に設定しました"))
-  
+
   (askPitch)
 
 
   (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:\\" "" 16))
   (setq loc (vl-filename-directory gloc))
   (setq f-list (vl-directory-files loc "*.dwg"))
+
+  ;  (prin1 f-list)
+
   ;フルパスの図面リストをつくる
-  (foreach n f-list (setq newFilelist (cons (strcat loc "\\" n) newFilelist)))
+  ;(foreach n f-list (setq newFilelist (cons (strcat loc "\\" n) newFilelist)))
+  (setq newFilelist (mapcar '(lambda (filename) (strcat loc "\\" filename)) 
+                            f-list
+                    )
+  )
+
+
+  (prin1 newFilelist)
+
   ;フルパスの図面リストをソートして、昇順のインデックス番号を取得しておく
-  (setq newFilelist-i (vl-sort-i f-list '>))
+  ;(setq newFilelist-i (vl-sort-i f-list '>))
+  (setq newFilelist-i (delDWGandSort))
+
+
   ; ファイル数を取得する
   (setq number (length f-list))
 
@@ -179,10 +234,10 @@
     ; ブロック重複時の上書き回避のため、ブロック名を変更する関数を実行
     (setq cnt 0)
     (renameBlk index)
-    
-    (prompt "\ntestlist：");デバッグ用
-    (prin1 testlist);デバッグ用
-    (prompt "\n\n");デバッグ用    
+
+    (prompt "\ntestlist：") ;デバッグ用
+    (prin1 testlist) ;デバッグ用
+    (prompt "\n\n") ;デバッグ用
 
     ; 次の配置点は、最初に入力された行数で判断する
     ;ファイル数を超える行数が入力されていたら、ファイル数を行数とする。
