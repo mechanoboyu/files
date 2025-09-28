@@ -185,8 +185,7 @@
                     )
   )
 
-
-  (prin1 newFilelist)
+  ;(prin1 newFilelist)
 
   ;フルパスの図面リストをソートして、昇順のインデックス番号を取得しておく
   ;(setq newFilelist-i (vl-sort-i f-list '>))
