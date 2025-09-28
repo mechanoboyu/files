@@ -179,6 +179,10 @@
     ; ブロック重複時の上書き回避のため、ブロック名を変更する関数を実行
     (setq cnt 0)
     (renameBlk index)
+    
+    (prompt "\ntestlist：");デバッグ用
+    (prin1 testlist);デバッグ用
+    (prompt "\n\n");デバッグ用    
 
     ; 次の配置点は、最初に入力された行数で判断する
     ;ファイル数を超える行数が入力されていたら、ファイル数を行数とする。
@@ -189,12 +193,15 @@
                        (list (car minp) (+ y_pitch (cadr minp)))
                       )
                       (t
-                       (list (+ x_pitch (apply 'min (mapcar 'cadr testlist))) 
+                       (list (+ x_pitch (car (car testlist))) 
                              (apply 'min (mapcar 'cadr testlist))
                        )
                       )
                     )
     )
+    (prompt "\n次の点：")
+    (prin1 nextpoint)
+    (prompt "\n")
     (setq insertionPnt (vlax-3D-point nextPoint))
     (vla-Delete blockRefObj)
     (setq index (1+ index))
