@@ -43,7 +43,7 @@
   ((lambda (/ tmp) 
      (setq tmp (SplitString s "-"))
      ;(print tmp)
-     (read (cadr tmp))
+     (read (last tmp))
    ) 
   )
 )
@@ -51,7 +51,7 @@
 (defun delDWGandSort (/ tmp) 
   (setq tmp (mapcar 
               '(lambda (x) 
-                 (vl-string-subst "" ".dwg" x)
+                 (vl-string-subst "" ".dwg" (strcase x T))
                )
               f-list
             )
@@ -234,9 +234,9 @@
     (setq cnt 0)
     (renameBlk index)
 
-    (prompt "\ntestlist：") ;デバッグ用
-    (prin1 testlist) ;デバッグ用
-    (prompt "\n\n") ;デバッグ用
+    ; (prompt "\ntestlist：") ;デバッグ用
+    ; (prin1 testlist) ;デバッグ用
+    ; (prompt "\n\n") ;デバッグ用
 
     ; 次の配置点は、最初に入力された行数で判断する
     ;ファイル数を超える行数が入力されていたら、ファイル数を行数とする。
