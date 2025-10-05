@@ -7,6 +7,7 @@
 ;https://www.noboyu.com/lisp-batch-insert-drawing/
 ; 内容：複数のDwgファイルのモデル空間を、一括で1枚の図面に集めて、並べます。
 ;2025/9/27:試験的に改変。ピッチをユーザ入力に変更。（未デバッグです。）
+;2025/10/5:行列両方のピッチおよび回数を入力可能にした
 ;**************************************************************************************;
 
 (defun *error* (msg) 
@@ -19,11 +20,72 @@
   (princ)
 )
 
-;ピッチをユーザーに聞く
-(defun askPitch () 
-  (setq x_pitch (getreal "\nX方向のピッチを入力してください: "))
-  (setq y_pitch (getreal "\nY方向のピッチを入力してください: "))
+;配置の仕様を、ピッチをユーザーに聞く
+(defun askArraySpec () 
+  ;行、列方向の数を設定
+  (setq m_row (fix (getreal "行数を入力して下さい: ")))
+  (while (zerop m_row) 
+    (setq m_row (fix (getreal "1 以上の行数を入力して下さい: ")))
+  )
+  (setq n_col (fix (getreal "列数を入力して下さい: ")))
+  (while (zerop n_col) 
+    (setq n_col (fix (getreal "1 以上の列数を入力して下さい: ")))
+  )
+  (princ (strcat "行数を、" (rtos m_row) " に設定しました"))
+  (terpri)
+  (princ (strcat "列数を、" (rtos n_col) " に設定しました"))
+  ;ピッチを設定
+  (setq drow (getreal "\nX方向のピッチを入力してください: "))
+  (setq dcol (getreal "\nY方向のピッチを入力してください: "))
 )
+
+;;
+;任意の位置の要素の値を計算する
+(defun CalcElment (index pitch) 
+  (+ 0 (* index pitch))
+)
+;nextpointのリストを作る
+(defun npList (/ i n xl yl) 
+  (setq xl nil)
+  (setq yl nil)
+  (setq npL nil)
+  (setq x_result_list nil)
+  (setq y_result_list nil)
+
+  (setq i 0)
+  (setq n 0)
+  
+  (if (< (length npL) number) 
+    (setq m_row (fix (1+ (/ number n_col 1.))))
+  )
+  (repeat n_col 
+    (setq xl (cons (CalcElment n dcol) xl))
+    (setq n (1+ n))
+  )
+  (repeat m_row 
+    (setq yl (cons (CalcElment i drow) yl))
+    (setq i (1+ i))
+  )
+  (setq xl (reverse xl))
+  (setq yl (reverse yl))
+  ;; 1. XLを繰り返すリストを作成
+  (setq x_result_list (apply 'append (mapcar '(lambda (x) xl) yl)))
+
+  ;; 2. YLの各要素をXLの要素数分繰り返すリストを作成
+  (setq y_result_list (apply 'append 
+                             (mapcar 
+                               '(lambda (y_val) 
+                                  (mapcar '(lambda (x_dummy) y_val) xl)
+                                )
+                               yl
+                             )
+                      )
+  )
+  (setq npL (mapcar 'list x_result_list y_result_list))
+)
+
+
+
 ;ファイル名末尾が一桁の連番が混ざっている場合でも、昇順を維持。
 ;1,10,2,20ではなく、1,2,10,20になるようにする
 ;ファイル名の末尾がハイフンで区切られている前提
@@ -63,7 +125,7 @@
               )
   )
 )
-
+;;;;;;;;;;;;;;;;
 
 ; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 匿名ブロックを通常ブロックに変換し、アスタリスクを名前に使わないようにする
@@ -163,13 +225,9 @@
 
   (vla-PurgeAll doc)
 
-  (setq lines (fix (getreal "行数を入力して下さい: ")))
-  (while (zerop lines) 
-    (setq lines (fix (getreal "1 以上の行数を入力して下さい: ")))
-  )
-  (princ (strcat "行数を、" (rtos lines) " に設定しました"))
 
-  (askPitch)
+
+  (askArraySpec)
 
 
   (setq gloc (getfiled "対象図面の保存場所のファイルを選択:" "E:\\" "" 16))
@@ -208,6 +266,12 @@
     ((= answer "No") (exit))
   )
 
+
+  ;;配置点のリストを作る
+  (npList)
+  ;ファイル数を超える行数が入力されていたら、ファイル数をループ回数とする。    
+  (if (> (length npL) number) (setq number number))
+  
   (setq index 0)
   (repeat number  ;ファイルの数だけ、処理を繰り返す
     ;図面を配置する関数
@@ -238,21 +302,8 @@
     ; (prin1 testlist) ;デバッグ用
     ; (prompt "\n\n") ;デバッグ用
 
-    ; 次の配置点は、最初に入力された行数で判断する
-    ;ファイル数を超える行数が入力されていたら、ファイル数を行数とする。
-    (if (>= lines number) (setq lines number))
-    (setq nextPoint (cond 
-                      ((< (rem index lines) (1- lines))
-                       ;(list (car minp) (+ 100 (cadr maxp)))
-                       (list (car minp) (+ y_pitch (cadr minp)))
-                      )
-                      (t
-                       (list (+ x_pitch (car (car testlist))) 
-                             (apply 'min (mapcar 'cadr testlist))
-                       )
-                      )
-                    )
-    )
+    (setq nextPoint (nth (1+ index) npL))
+
     (prompt "\n次の点：")
     (prin1 nextpoint)
     (prompt "\n")
