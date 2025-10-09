@@ -174,7 +174,7 @@
   (setq ll (mapcar 
              '(lambda (x) 
                 (if (= (car x) nil) 
-                  (cons 0 x)
+                  (cons 0 x);仮の処理
                   x
                 )
               )
