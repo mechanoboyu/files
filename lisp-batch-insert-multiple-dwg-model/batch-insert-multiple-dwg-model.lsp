@@ -4,10 +4,11 @@
 ; ファイル名：batch-insert-multiple-dwg-model.lsp
 ; 作成日：2023/1/3
 ; 作成：Noboyu
-;https://www.noboyu.com/lisp-batch-insert-drawing/
+;詳細は、https://www.noboyu.com/lisp-batch-insert-drawing/
 ; 内容：複数のDwgファイルのモデル空間を、一括で1枚の図面に集めて、並べます。
 ;2025/9/27:試験的に改変。ピッチをユーザ入力に変更。（未デバッグです。）
 ;2025/10/5:行列両方のピッチおよび回数を入力可能にした
+;2025/10/9：ファイル名のプレフィックスとサフィックス両方考慮する仕様にした
 ;**************************************************************************************;
 
 (defun *error* (msg) 
@@ -35,8 +36,8 @@
   (terpri)
   (princ (strcat "列数を、" (rtos n_col) " に設定しました"))
   ;ピッチを設定
-  (setq drow (getreal "\nX方向のピッチを入力してください: "))
-  (setq dcol (getreal "\nY方向のピッチを入力してください: "))
+  (setq dcol (getreal "\nX方向のピッチを入力してください: "))
+  (setq drow (getreal "\nY方向のピッチを入力してください: "))
 )
 
 ;;
@@ -54,7 +55,7 @@
 
   (setq i 0)
   (setq n 0)
-  
+
   (if (< (length npL) number) 
     (setq m_row (fix (1+ (/ number n_col 1.))))
   )
@@ -83,8 +84,6 @@
   )
   (setq npL (mapcar 'list x_result_list y_result_list))
 )
-
-
 
 ;ファイル名末尾が一桁の連番が混ざっている場合でも、昇順を維持。
 ;1,10,2,20ではなく、1,2,10,20になるようにする
@@ -125,8 +124,113 @@
               )
   )
 )
-;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;ファイル名のソート処理
+;拡張子消す
+(defun delDWG (/ tmp) 
+  (setq tmp (mapcar 
+              '(lambda (x) 
+                 (vl-string-subst "" ".dwg" (strcase x T))
+               )
+              f-list
+            )
+  )
+)
+;;数字以外は0に変換してリスト出力
+(defun extractNUM (filen / tmp) 
+  ;ファイルネームをアスキーコードに変換したリストを返す
+  (setq temp (mapcar 
+               '(lambda (x) 
+                  (vl-string->list x)
+                )
+               filen
+             )
+  )
 
+  (setq preSuflst (mapcar 
+                    '(lambda (x) 
+                       (mapcar 
+                         '(lambda (y) 
+                            (if (or (< 1 y 48) (< 52 y)) 
+                              nil
+                              y
+                            )
+                          )
+                         x
+                       )
+                     )
+                    temp
+                  )
+  )
+)
+
+  ;;;;抽出した数字の前半と後半を分割
+(defun splitLst (l / k i pos ll) 
+  (setq prefix nil)
+  (setq suffix nil)
+  (setq i 0)
+  ;前半のリストの処理
+  ;prefixがない場合、0を付加 OK
+  (setq ll (mapcar 
+             '(lambda (x) 
+                (if (= (car x) nil) 
+                  (cons 0 x)
+                  x
+                )
+              )
+             l
+           )
+  )
+  ;;;;;;nilを抜いて、前半のprefixだけを抽出する
+  (defun extract-non-nil-prefix (sublist) 
+    ((lambda (temp-list result) 
+       (while (and temp-list (/= (car temp-list) nil)) 
+         (setq result (append result (list (car temp-list))))
+         (setq temp-list (cdr temp-list))
+       )
+       result
+     ) 
+      sublist
+      '()
+    )
+  )  
+;後半リストの処理
+  (defun extract-non-nil-suffix (sublist) 
+    (setq suf (member nil sublist))
+    ;先頭にnilがあるばあい、先頭をリストから削るのを繰り返す
+    (while (= (car suf) nil) 
+      (setq suf (cdr suf))
+    )
+  )
+ ;prefixとsuffixをそれぞれ抽出
+  (setq prefix (mapcar 'extract-non-nil-prefix ll))
+  (setq suffix (mapcar 'extract-non-nil-suffix ll))
+  
+  ;;;;アスキーコードを文字に戻す
+  (setq preANDsuffix (mapcar 
+                       '(lambda (pre suf)  
+                          (list (atoi (vl-list->string pre)) 
+                                (atoi (vl-list->string suf))
+                          ) ; 
+                        )
+                       prefix
+                       suffix
+                     )
+  )
+)
+  ;;;;リストのcarどうし、cadrどうしをソートする
+(defun Sortl (lst / tmp) 
+  (vl-sort-i lst 
+             (function 
+               (lambda (e1 e2) 
+                 (cond 
+                   ((< (car e1) (car e2)))
+                   ((= (car e1) (car e2)) (< (cadr e1) (cadr e2)))
+                 )
+               )
+             )
+  )
+)
 ; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 匿名ブロックを通常ブロックに変換し、アスタリスクを名前に使わないようにする
 (defun convUnnamedBlk () 
@@ -237,17 +341,19 @@
   ;  (prin1 f-list)
 
   ;フルパスの図面リストをつくる
-  ;(foreach n f-list (setq newFilelist (cons (strcat loc "\\" n) newFilelist)))
   (setq newFilelist (mapcar '(lambda (filename) (strcat loc "\\" filename)) 
                             f-list
                     )
   )
 
+  ;ソート準備。数字以外は0に変換してリスト出力
+  (extractNUM (delDWG))
+  ;;;;抽出した数字の前半と後半を分割
+  (splitLst preSuflst)
   ;(prin1 newFilelist)
 
   ;フルパスの図面リストをソートして、昇順のインデックス番号を取得しておく
-  ;(setq newFilelist-i (vl-sort-i f-list '>))
-  (setq newFilelist-i (delDWGandSort))
+  (setq newFilelist-i (Sortl preANDsuffix))
 
 
   ; ファイル数を取得する
@@ -269,9 +375,9 @@
 
   ;;配置点のリストを作る
   (npList)
-  ;ファイル数を超える行数が入力されていたら、ファイル数をループ回数とする。    
+  ;ファイル数を超える行数が入力されていたら、ファイル数をループ回数とする。
   (if (> (length npL) number) (setq number number))
-  
+
   (setq index 0)
   (repeat number  ;ファイルの数だけ、処理を繰り返す
     ;図面を配置する関数
