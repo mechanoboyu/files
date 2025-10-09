@@ -151,7 +151,7 @@
                     '(lambda (x) 
                        (mapcar 
                          '(lambda (y) 
-                            (if (or (< 1 y 48) (< 52 y)) 
+                            (if (or (< 1 y 48) (< 57 y)) 
                               nil
                               y
                             )
@@ -193,25 +193,28 @@
       sublist
       '()
     )
-  )  
-;後半リストの処理
+  )
+  ;後半リストの処理
   (defun extract-non-nil-suffix (sublist) 
     (setq suf (member nil sublist))
     ;先頭にnilがあるばあい、先頭をリストから削るのを繰り返す
-    (while (= (car suf) nil) 
-      (setq suf (cdr suf))
+    (if suf 
+      (while (and suf (= (car suf) nil)) 
+        (setq suf (cdr suf))
+      )
     )
+    suf
   )
- ;prefixとsuffixをそれぞれ抽出
+  ;prefixとsuffixをそれぞれ抽出
   (setq prefix (mapcar 'extract-non-nil-prefix ll))
   (setq suffix (mapcar 'extract-non-nil-suffix ll))
-  
+
   ;;;;アスキーコードを文字に戻す
   (setq preANDsuffix (mapcar 
-                       '(lambda (pre suf)  
+                       '(lambda (pre suf) 
                           (list (atoi (vl-list->string pre)) 
                                 (atoi (vl-list->string suf))
-                          ) ; 
+                          ) ;
                         )
                        prefix
                        suffix
