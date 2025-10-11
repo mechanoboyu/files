@@ -195,16 +195,22 @@
     )
   )
   ;後半リストの処理
-  (defun extract-non-nil-suffix (sublist) 
-    (setq suf (member nil sublist))
-    ;先頭にnilがあるばあい、先頭をリストから削るのを繰り返す
-    (if suf 
-      (while (and suf (= (car suf) nil)) 
-        (setq suf (cdr suf))
-      )
-    )
-    suf
+(defun extract-non-nil-suffix (sublist)
+  ((lambda (reversed-list)
+     ;; 逆転したリストの先頭にある連続した nil をスキップ
+     (while (and reversed-list (eq (car reversed-list) nil))
+       (setq reversed-list (cdr reversed-list))
+     )
+     
+     ; 最後の非nil要素だけが必要な場合:
+     (if reversed-list
+       (list (car reversed-list)) ; 最初の要素 (つまり元のリストの最後の非 nil 要素) だけを返す
+       nil ; 完全に nil しかなかった場合は nil を返す
+     )
+   )
+   (reverse sublist) ; 元のリストを逆転させて処理を開始
   )
+)
   ;prefixとsuffixをそれぞれ抽出
   (setq prefix (mapcar 'extract-non-nil-prefix ll))
   (setq suffix (mapcar 'extract-non-nil-suffix ll))
